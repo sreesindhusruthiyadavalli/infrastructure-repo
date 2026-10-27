@@ -1,0 +1,62 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: infra-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 2s
+
+  demo-service:
+    build:
+      context: .
+      dockerfile: docker/demo-service.Dockerfile
+    container_name: infra-demo-service
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      READY_AFTER: "10"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/live', timeout=1).getcode() == 200 else 1)\"",
+        ]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 2s
+
+  reverse-proxy:
+    build:
+      context: .
+      dockerfile: docker/reverse-proxy.Dockerfile
+    container_name: infra-reverse-proxy
+    depends_on:
+      demo-service:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+      - "8443:8443"
+    volumes:
+      - ./proxy-lab/certs:/etc/nginx/certs:ro
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O - --header='Host: demo.internal.test' --no-check-certificate https://127.0.0.1:8443/live >/dev/null || exit 1",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s

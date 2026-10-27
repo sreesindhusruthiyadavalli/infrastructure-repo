@@ -1,0 +1,16 @@
+# Local generated certificates
+proxy-lab/certs/*.crt
+proxy-lab/certs/*.key
+proxy-lab/certs/*.csr
+proxy-lab/certs/*.pem
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# macOS
+.DS_Store
